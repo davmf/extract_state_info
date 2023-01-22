@@ -10,3 +10,4 @@ regex = "1.7.1"
 lazy_static = "1.4.0"
 clap = { version = "4.1.1", features = ["derive"] }
 anyhow = "1.0.68"
+clippy = "0.0.302"
