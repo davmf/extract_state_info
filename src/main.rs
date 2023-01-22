@@ -20,36 +20,33 @@ fn main() -> Result<()> {
     }
 
     let mut transition = Transition::new();
-    let mut targets: Vec<String> = Vec::new();
     let mut current_state = String::new();
     
     for source_line in source_lines {
 
         if let Some(state) = get_state(&source_line) {
-            println!("{}", &state);
             states.push(state.clone());
             current_state = state.clone();
-
+        }
+        else if let Some(event) = get_event(&source_line) {
             if !&transition.is_empty() {
                 transitions.add_transition(&transition);
             }
-        }
-        else if let Some(event) = get_event(&source_line) {
             transition.initialise(&current_state, &event);
-            println!("{}", &event);
         }
-        else if let Some(next_state) = get_next_state(&source_line) {
-            println!("{}", &next_state);
-            targets.push(next_state)
+        else if let Some(target) = get_target(&source_line) {
+            transition.add_target(&target);
         }
         else if let Some(handled) = get_handled(&source_line) {                    
-            println!("{}", &handled);
+            transition.add_target(&current_state);
         }
         else {}
     }
 
-    output_states(&states);
+    // add the final transition
+    transitions.add_transition(&transition);
 
+    output_states(&states);
     transitions.output();
 
     Ok(())
@@ -90,7 +87,7 @@ fn get_event(line: &str) -> Option<String> {
 }
 
 
-fn get_next_state(line: &str) -> Option<String> {
+fn get_target(line: &str) -> Option<String> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"^.*Q_TRAN\(&(\w*)").unwrap();
     }
@@ -123,26 +120,23 @@ fn get_match(re: &Regex, line: &str) -> Option<String> {
 
 
 
-struct Transitions {
-    transitions: Vec<Transition>,
-}
+struct Transitions (Vec<Transition>);
+
 
 impl Transitions {
 
     fn new() -> Transitions {
-        Transitions {
-            transitions: Vec::new(),
-        }
+        Transitions(Vec::new())
     }
     
     fn add_transition(&mut self, transition: &Transition) {
-        self.transitions.push(transition.clone());
+        self.0.push(transition.clone());
     }
 
     fn output(&self) {
         println!("");
 
-        for transition in &self.transitions {
+        for transition in &self.0 {
             println!("{:?}", &transition);
         }
     }
