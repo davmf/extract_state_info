@@ -1,3 +1,9 @@
+mod states;
+mod transitions;
+
+use states::{States, State};
+use transitions::{Transitions, EventTransitions};
+
 use clap::Parser;
 use anyhow::Result;
 use std::path::Path;
@@ -6,11 +12,12 @@ use std::io::{BufRead, BufReader, Lines};
 use lazy_static::lazy_static;
 use regex::Regex;
 
+
 fn main() -> Result<()> {
     let args = Args::parse();
     let path = Path::new(&args.path);
     let mut source_lines = Vec::new();
-    let mut states = Vec::new();
+    let mut states = States::new();
     let mut transitions = Transitions::new();
     
     if let Ok(lines) = read_lines(path) {
@@ -19,46 +26,46 @@ fn main() -> Result<()> {
         }
     }
 
-    let mut transition = Transition::new();
-    let mut current_state = String::new();
+    let mut event_transitions = EventTransitions::new();
+    let mut current_state = State::new("");
     
     for source_line in source_lines {
 
-        if let Some(state) = get_state(&source_line) {
-            states.push(state.clone());
+        if let Some(state_name) = get_state(&source_line) {
+            let state = State::new(&state_name);
             current_state = state.clone();
         }
+        else if let Some(parent_name) = get_parent(&source_line) {
+            let parent = State::new(&parent_name);
+            current_state.set_parent(&parent);
+            states.add_state(&current_state.clone());
+        }
         else if let Some(event) = get_event(&source_line) {
-            if !&transition.is_empty() {
-                transitions.add_transition(&transition);
+            if !&event_transitions.is_empty() {
+                transitions.add_transition(&event_transitions);
             }
-            transition.initialise(&current_state, &event);
+            event_transitions.initialise(&current_state, &event);
         }
-        else if let Some(target) = get_target(&source_line) {
-            transition.add_target(&target);
+        else if let Some(target_name) = get_target(&source_line) {
+            let target = State::new(&target_name);
+            event_transitions.add_target(&target.clone());
         }
-        else if let Some(handled) = get_handled(&source_line) {                    
-            transition.add_target(&current_state);
+        else if is_handled(&source_line) {                    
+            event_transitions.add_target(&current_state);
         }
         else {}
     }
 
     // add the final transition
-    transitions.add_transition(&transition);
+    transitions.add_transition(&event_transitions);
 
-    output_states(&states);
-    transitions.output();
+    println!("{:?}", states);
+    println!("{:?}", transitions);
+
+    println!("{}", states);
+    println!("{}", transitions);
 
     Ok(())
-}
-
-
-fn output_states(states: &Vec<String>) {
-    println!("");
-    
-    for state in states {
-        println!("$state(\"{}\")", state);
-    }
 }
 
 
@@ -96,12 +103,21 @@ fn get_target(line: &str) -> Option<String> {
 }
 
 
-fn get_handled(line: &str) -> Option<String> {
+fn get_parent(line: &str) -> Option<String> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"^.*Q_SUPER\(&(\w*)").unwrap();
+    }
+
+    get_match(&RE, line)
+}
+
+
+fn is_handled(line: &str) -> bool {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"^.*?(Q_HANDLED)\(").unwrap();
     }
 
-    get_match(&RE, line)
+    get_match(&RE, line).is_some()
 }
 
 
@@ -114,64 +130,6 @@ fn get_match(re: &Regex, line: &str) -> Option<String> {
             group.map(|g| g.as_str().to_string())
         },
         None => None,
-    }
-
-}
-
-
-
-struct Transitions (Vec<Transition>);
-
-
-impl Transitions {
-
-    fn new() -> Transitions {
-        Transitions(Vec::new())
-    }
-    
-    fn add_transition(&mut self, transition: &Transition) {
-        self.0.push(transition.clone());
-    }
-
-    fn output(&self) {
-        println!("");
-
-        for transition in &self.0 {
-            println!("{:?}", &transition);
-        }
-    }
-}
-
-
-#[derive(Debug, Clone)]
-struct Transition {
-    state: String,
-    targets: Vec<String>,
-    event: String,
-}
-
-impl Transition {
-
-    fn new() -> Transition {
-        Transition {
-            state: "".to_string(),
-            targets: Vec::new(),
-            event: "".to_string(),
-        }
-    }
-    
-    fn initialise(&mut self, state: &str, event: &str) {
-        self.state = state.to_string();
-        self.event = event.to_string();
-        self.targets = Vec::new();
-    }   
-    
-    fn add_target(&mut self, target: &str) {
-        self.targets.push(target.to_string());
-    }   
-
-    fn is_empty(&self) -> bool {
-        self.state == ""
     }
 
 }
