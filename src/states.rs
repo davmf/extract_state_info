@@ -15,7 +15,7 @@ impl States {
 impl fmt::Debug for States {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for state in &self.0 {
-            writeln!(f, "{:?}", state);
+            writeln!(f, "{:?}", state).expect("writeln! issue");
         }
         Ok(())
     }
@@ -24,7 +24,7 @@ impl fmt::Debug for States {
 impl fmt::Display for States {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for state in &self.0 {
-            writeln!(f, "{}", state);
+            writeln!(f, "{}", state).expect("writeln! issue");
         }
         Ok(())
     }
@@ -47,14 +47,10 @@ impl State {
     pub fn set_parent(&mut self, parent: &State) {
         self.parent_name = parent.name.clone();
     }
-
-    pub fn is_empty(&self) -> bool {
-        self.name.is_empty()
-    }
 }
 
 impl fmt::Display for State {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}  $state(\"{}\");", self.parent_name, self.name)
+        write!(f, "{}  $state(\"{}\")", self.parent_name, self.name)
     }
 }
